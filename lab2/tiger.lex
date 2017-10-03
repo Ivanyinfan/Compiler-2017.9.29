@@ -58,7 +58,10 @@ char *getstr(const char *str)
 			ret[j]=str[i];
 		++j;
 	}
-	ret[j]='\0';		
+	if(j==0)
+		ret=NULL;
+	else
+		ret[j]='\0';		
 	return ret;
 }
 
@@ -89,7 +92,7 @@ char *getstr(const char *str)
 <INITIAL>var {adjust();return VAR;}
 <INITIAL>type {adjust();return TYPE;}
 <INITIAL>[a-zA-Z][a-zA-Z0-9_]* {adjust();yylval.sval=String(yytext);return ID;}
-<INITIAL>\"[a-zA-Z0-9"\-"" ""\\t""\\n"]*\" {adjust();yylval.sval=getstr(yytext);return STRING;}
+<INITIAL>\"[a-zA-Z0-9\- \.\\]*\" {adjust();yylval.sval=getstr(yytext);return STRING;}
 <INITIAL>[0-9]+ {adjust();yylval.ival=atoi(yytext);return INT;}
 <INITIAL>, {adjust();return COMMA;}
 <INITIAL>: {adjust();return COLON;}
@@ -106,7 +109,7 @@ char *getstr(const char *str)
 <INITIAL>"*" {adjust();return TIMES;}
 <INITIAL>"/" {adjust();return DIVIDE;}
 <INITIAL>= {adjust();return EQ;}
-<INITIAL>!= {adjust();return NEQ;}
+<INITIAL>!=|<> {adjust();return NEQ;}
 <INITIAL>"<" {adjust();return LT;}
 <INITIAL>"<=" {adjust();return LE;}
 <INITIAL>> {adjust();return GT;}
@@ -116,5 +119,6 @@ char *getstr(const char *str)
 <INITIAL>:= {adjust();return ASSIGN;}
 <INITIAL>(" "|"\t")+ {adjust();continue;}
 <INITIAL>"/\*" {adjust();BEGIN COMMENT;}
-<COMMENT>[a-zA-Z0-9" "\-]* {adjust();}
+<COMMENT>[a-zA-Z0-9\-\.\"\(\);\\:=,!\n@#$%/ ]* {adjust();}
 <COMMENT>"\*/" {adjust();BEGIN INITIAL;}
+<COMMENT>\* {adjust();}

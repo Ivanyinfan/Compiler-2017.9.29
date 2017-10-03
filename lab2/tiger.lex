@@ -64,54 +64,57 @@ char *getstr(const char *str)
 
 %}
   /* You can add lex definitions here. */
-
+%Start COMMENT
 %%
   /* 
   * Below is an example, which you can wipe out
   * and write reguler expressions and actions of your own.
   */ 
-"\n" {adjust(); EM_newline(); continue;}
-array {adjust();return ARRAY;}
-if {adjust();return IF;}
-then {adjust();return THEN;}
-else {adjust();return ELSE;}
-while {adjust();return WHILE;}
-for {adjust();return FOR;}
-to {adjust();return TO;}
-do {adjust();return DO;}
-let {adjust();return LET;}
-in {adjust();return IN;}
-end {adjust();return END;}
-of {adjust();return OF;}
-break {adjust();return BREAK;}
-nil {adjust();return NIL;}
-function {adjust();return FUNCTION;}
-var {adjust();return VAR;}
-type {adjust();return TYPE;}
-[a-zA-Z][a-zA-Z0-9_]* {adjust();yylval.sval=String(yytext);return ID;}
-\"[a-zA-Z0-9"\-"" ""\\t""\\n"]*\" {adjust();yylval.sval=getstr(yytext);return STRING;}
-[0-9]+ {adjust();yylval.ival=atoi(yytext);return INT;}
-, {adjust();return COMMA;}
-: {adjust();return COLON;}
-; {adjust();return SEMICOLON;}
-"(" {adjust();return LPAREN;}
-")" {adjust();return RPAREN;}
-"[" {adjust();return LBRACK;}
-"]" {adjust();return RBRACK;}
-"{" {adjust();return LBRACE;}
-"}" {adjust();return RBRACE;}
-"." {adjust();return DOT;}
-"+" {adjust();return PLUS;}
-- {adjust();return MINUS;}
-"*" {adjust();return TIMES;}
-"/" {adjust();return DIVIDE;}
-= {adjust();return EQ;}
-!= {adjust();return NEQ;}
-"<" {adjust();return LT;}
-"<=" {adjust();return LE;}
-> {adjust();return GT;}
->= {adjust();return GE;}
-& {adjust();return AND;}
-"|" {adjust();return OR;}
-:= {adjust();return ASSIGN;}
-(" "|"\t")+ {adjust();continue;}
+<INITIAL>"\n" {adjust(); EM_newline(); continue;}
+<INITIAL>array {adjust();return ARRAY;}
+<INITIAL>if {adjust();return IF;}
+<INITIAL>then {adjust();return THEN;}
+<INITIAL>else {adjust();return ELSE;}
+<INITIAL>while {adjust();return WHILE;}
+<INITIAL>for {adjust();return FOR;}
+<INITIAL>to {adjust();return TO;}
+<INITIAL>do {adjust();return DO;}
+<INITIAL>let {adjust();return LET;}
+<INITIAL>in {adjust();return IN;}
+<INITIAL>end {adjust();return END;}
+<INITIAL>of {adjust();return OF;}
+<INITIAL>break {adjust();return BREAK;}
+<INITIAL>nil {adjust();return NIL;}
+<INITIAL>function {adjust();return FUNCTION;}
+<INITIAL>var {adjust();return VAR;}
+<INITIAL>type {adjust();return TYPE;}
+<INITIAL>[a-zA-Z][a-zA-Z0-9_]* {adjust();yylval.sval=String(yytext);return ID;}
+<INITIAL>\"[a-zA-Z0-9"\-"" ""\\t""\\n"]*\" {adjust();yylval.sval=getstr(yytext);return STRING;}
+<INITIAL>[0-9]+ {adjust();yylval.ival=atoi(yytext);return INT;}
+<INITIAL>, {adjust();return COMMA;}
+<INITIAL>: {adjust();return COLON;}
+<INITIAL>; {adjust();return SEMICOLON;}
+<INITIAL>"(" {adjust();return LPAREN;}
+<INITIAL>")" {adjust();return RPAREN;}
+<INITIAL>"[" {adjust();return LBRACK;}
+<INITIAL>"]" {adjust();return RBRACK;}
+<INITIAL>"{" {adjust();return LBRACE;}
+<INITIAL>"}" {adjust();return RBRACE;}
+<INITIAL>"." {adjust();return DOT;}
+<INITIAL>"+" {adjust();return PLUS;}
+<INITIAL>- {adjust();return MINUS;}
+<INITIAL>"*" {adjust();return TIMES;}
+<INITIAL>"/" {adjust();return DIVIDE;}
+<INITIAL>= {adjust();return EQ;}
+<INITIAL>!= {adjust();return NEQ;}
+<INITIAL>"<" {adjust();return LT;}
+<INITIAL>"<=" {adjust();return LE;}
+<INITIAL>> {adjust();return GT;}
+<INITIAL>>= {adjust();return GE;}
+<INITIAL>& {adjust();return AND;}
+<INITIAL>"|" {adjust();return OR;}
+<INITIAL>:= {adjust();return ASSIGN;}
+<INITIAL>(" "|"\t")+ {adjust();continue;}
+<INITIAL>"/\*" {adjust();BEGIN COMMENT;}
+<COMMENT>[a-zA-Z0-9" "\-]* {adjust();}
+<COMMENT>"\*/" {adjust();BEGIN INITIAL;}

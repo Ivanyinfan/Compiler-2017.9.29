@@ -23,7 +23,7 @@ void adjust(void)
 * Please don't modify the lines above.
 * You can add C declarations of your own below.
 */
-
+int comment_layer=0;
 /* @function: getstr
  * @input: a string literal
  * @output: the string value for the input which has all the escape sequences 
@@ -118,7 +118,8 @@ char *getstr(const char *str)
 <INITIAL>"|" {adjust();return OR;}
 <INITIAL>:= {adjust();return ASSIGN;}
 <INITIAL>(" "|"\t")+ {adjust();continue;}
-<INITIAL>"/\*" {adjust();BEGIN COMMENT;}
-<COMMENT>[a-zA-Z0-9\-\.\"\(\);\\:=,!\n@#$%/ ]* {adjust();}
-<COMMENT>"\*/" {adjust();BEGIN INITIAL;}
-<COMMENT>\* {adjust();}
+<INITIAL>\/\* {adjust();comment_layer++;BEGIN COMMENT;}
+<COMMENT>\/\* {adjust();comment_layer++;}
+<COMMENT>[a-zA-Z0-9\-\.\"\(\);\\:=,!\n@#$% ]* {adjust();}
+<COMMENT>\*\/ {adjust();comment_layer--;if(comment_layer==0)BEGIN INITIAL;}
+<COMMENT>\*|\/ {adjust();}

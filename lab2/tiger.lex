@@ -32,7 +32,34 @@ void adjust(void)
 char *getstr(const char *str)
 {
 	//optional: implement this function if you need it
-	return NULL;
+	int len=strlen(str);
+	string ret=checked_malloc(len-1);
+	int i,j=0;
+	for(i=0;i<len;++i)
+	{
+		if(i==0||i==len-1)
+			continue;
+		if(str[i]=='\\')
+		{
+			if(str[i+1]=='t')
+			{
+				ret[j]='\t';
+				++i;
+			}
+			else if(str[i+1]=='n')
+			{
+				ret[j]='\n';
+				++i;
+			}
+			else
+				ret[j]=='\\';
+		}
+		else
+			ret[j]=str[i];
+		++j;
+	}
+	ret[j]='\0';		
+	return ret;
 }
 
 %}
@@ -62,7 +89,7 @@ function {adjust();return FUNCTION;}
 var {adjust();return VAR;}
 type {adjust();return TYPE;}
 [a-zA-Z][a-zA-Z0-9_]* {adjust();yylval.sval=String(yytext);return ID;}
-\"[a-zA-Z0-9" ""\\t""\\n"]*\" {adjust();yylval.sval=String(yytext+1);yylval.sval[strlen(yylval.sval)-1]='\0';return STRING;}
+\"[a-zA-Z0-9"\-"" ""\\t""\\n"]*\" {adjust();yylval.sval=getstr(yytext);return STRING;}
 [0-9]+ {adjust();yylval.ival=atoi(yytext);return INT;}
 , {adjust();return COMMA;}
 : {adjust();return COLON;}

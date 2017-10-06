@@ -119,6 +119,7 @@ char *getstr(const char *str)
 <INITIAL>:= {adjust();return ASSIGN;}
 <INITIAL>(" "|"\t")+ {adjust();continue;}
 <INITIAL>\/\* {adjust();comment_layer++;BEGIN COMMENT;}
+<INITIAL>. {adjust();EM_error(charPos,"illegal character");}
 <COMMENT>\/\* {adjust();comment_layer++;}
 <COMMENT>[a-zA-Z0-9\-\.\"\(\);\\:=,!\n@#$% ]* {adjust();}
 <COMMENT>\*\/ {adjust();comment_layer--;if(comment_layer==0)BEGIN INITIAL;}

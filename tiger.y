@@ -68,9 +68,51 @@ void yyerror(char *s)
 
 program:	exp {absyn_root = $1;};
 
-exp:
+exp:   lvalue {$$=A_VarExp(EM_tokPos,$1);}
+     | NIL {$$=A_NilExp(EM_tokPos);}
+     | INT {$$=A_IntExp(EM_tokPos,$1);}
+     | STRING {$$=A_StringExp(EM_tokPos,$1);}
+     | ID LPAREN expList RPAREN {$$=A_CallExp(EM_tokPos,S_Symbol($1),);}
+     | exp OP exp {$$=A_OpExp(EM_tokPos,$2,$1,$3);}
+     | {$$=A_RecordExp(EM_tokPos);}
+     | {$$=A_SeqExp(EM_tokPos);}
+     | lvalue ASSIGN exp {$$=A_AssignExp(EM_tokPos,$1,$3);}
+     | IF exp THEN exp ELSE exp {$$=A_IfExp(EM_tokPos,$2,$4,$6);}
+     | IF exp THEN exp {$$=A_IfExp(EM_tokPos,$2,$4,NULL);}
+     | WHILE exp DO exp {$$=A_WhileExp(EM_tokPos,$2,$4);}
+     | FOR ID ASSIGN exp TO exp DO exp {$$=A_ForExp(EM_tokPos,S_symbol($2),$4,$6,$8);}
+     | BREAK {$$=A_BreakExp(EM_tokPos);}
+     | LET decs IN exp END {$$=A_LetExp(EM_tokPos,$2,$4);}
+     | ID LBRACK exp RBRACK OF exp {$$=A_ArrayExp(EM_tokPos,S_symbol(ID),$3,$6);}
+     ;
+
+decs:   dec decs {$$=A_decList($1,$2);}
+      | {$$=NULL;}
+      ;
+
+dec:   tydecs {$$=A_TypeDec(EM_tokPos,$1);}
+     | vardec {$$=$1;}
+     | fundec {$$=$1;}
+     ;
+
+tydecs:   tydec tydecs {$$=A_NametyList($1,$2);}
+        | {$$=NULL;}
+        ;
+
+tydec: TYPE ID EQ ty {$$=A_Namety(S_symbol($2),$4);};
+
+ty:   ID {$$=A_NameTy(EM_tokPos,S_symbol($1);}
+    | LBRACE tyfields RBRACE {$$=A_RecordTy(EM_tokPos,$2);}
+    | ARRAY OF ID {$$=A_ArrayTy(EM_tokPos,S_symbol($3);}
+    ;
+
+tyfields:   tyfield tyfields {$$=A_NameList($1,$2);}
+          | COMMA {$$=NULL;}
+          | {$$=NULL;}
+          ;
 
 vardec     :   VAR ID ASSIGN exp  {$$ = A_VarDec(EM_tokPos,S_Symbol($2),S_Symbol(""),$4);}
               |VAR ID COLON ID ASSIGN exp  {$$ = A_VarDec(EM_tokPos,S_Symbol($2),S_Symbol($4),$6);}
               ; 
 
+fundec:   FUNCTION ID LPAREN tyfields RPAREN EQ exp {$$=A_FunctionDec(EM_tokPos,

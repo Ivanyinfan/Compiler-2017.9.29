@@ -61,7 +61,7 @@ char *getstr(const char *str)
 		++j;
 	}
 	if(j==0)
-		ret=NULL;
+		ret="";
 	else
 		ret[j]='\0';		
 	return ret;

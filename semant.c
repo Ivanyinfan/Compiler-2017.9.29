@@ -6,14 +6,13 @@
 #include "symbol.h"
 #include "absyn.h"
 #include "types.h"
-#include "helper.h"
 #include "env.h"
 #include "semant.h"
+#include "helper.h"
+#include "translate.h"
 
-/*Lab4: Your implementation of lab4*/
+/*Lab5: Your implementation of lab5.*/
 
-
-typedef void* Tr_exp;
 struct expty 
 {
 	Tr_exp exp; 
@@ -31,9 +30,10 @@ struct expty expTy(Tr_exp exp, Ty_ty ty)
 	return e;
 }
 
-void SEM_transProg(A_exp exp)
-{
-	transExp(E_base_venv(), E_base_tenv(), exp);
+F_fragList SEM_transProg(A_exp exp){
+
+	//TODO LAB5: do not forget to add the main frame
+	return NULL;
 }
 
 struct expty transVar(S_table venv,S_table tenv,A_var v)
@@ -276,6 +276,7 @@ struct expty transExp(S_table venv,S_table tenv,A_exp a)
 		}
 	}
 }
+
 void transDec(S_table venv, S_table tenv, A_dec d)
 {
 	switch(d->kind)

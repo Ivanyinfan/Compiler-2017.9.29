@@ -12,16 +12,24 @@
 //LAB5: you can modify anything you want.
 
 static F_fragList fragList;
+static int levels=0;
 
 struct Tr_access_ {
 	Tr_level level;
 	F_access access;
 };
+F_access getAccess(Tr_access a){if(a)return a->access;return NULL;}
 
 struct Tr_level_ {
 	F_frame frame;
 	Tr_level parent;
+	int key;
 };
+int getKey(Tr_level level)
+{
+	if(!level)return -1;
+	return level->key;
+}
 
 typedef struct patchList_ *patchList;
 struct patchList_ 
@@ -42,10 +50,17 @@ struct Tr_exp_ {
 	union {T_exp ex; T_stm nx; struct Cx cx; } u;
 };
 
+int getKind(Tr_exp exp){return exp->kind;}
+
 struct Tr_expList_ {
 	Tr_exp head;
 	Tr_expList tail;
 };
+int TrExpListLen(Tr_expList el)
+{
+	if(!el)return 0;
+	return 1+TrExpListLen(el->tail);
+}
 
 static T_expList T_ExpList2(Tr_expList args);
 static Tr_accessList Tr_AccessList2(Tr_level level, F_accessList formals);
@@ -123,8 +138,7 @@ static T_exp unEx(Tr_exp e) {
                   T_Eseq(e->u.cx.stm,
                    T_Eseq(T_Label(f),
                     T_Eseq(T_Move(T_Temp(r), T_Const(0)),
-                     T_Eseq(T_Label(t),
-                             T_Temp(r))))));
+                     T_Eseq(T_Label(t),T_Temp(r))))));
         }
         case Tr_nx:
           return T_Eseq(e->u.nx, T_Const(0));
@@ -189,7 +203,8 @@ Tr_level Tr_outermost(void)
 {
 	Tr_level l = checked_malloc(sizeof(*l));
     l->parent = NULL;
-    l->frame = F_newFrame(Temp_newlabel(), NULL);
+    l->frame = F_newFrame(Temp_namedlabel("tigermain"), NULL);
+    l->key=levels++;
     return l;
 }
 
@@ -198,12 +213,14 @@ Tr_level Tr_newLevel(Tr_level parent, Temp_label name, U_boolList formals)
 	Tr_level l = checked_malloc(sizeof(*l));
     l->parent = parent;
     l->frame = F_newFrame(name, U_BoolList(TRUE, formals));
+    l->key=levels++;
     return l;
 }
 
 Tr_accessList Tr_formals(Tr_level level)
 {
 	F_accessList formals=level->frame->formals;
+	formals=formals->tail;//跳过静态链
 	return Tr_AccessList2(level,formals);
 }
 
@@ -214,16 +231,19 @@ Tr_access Tr_allocLocal(Tr_level level, bool escape)
 
 Tr_exp Tr_Nil()
 {
+	//////fprintf(stdout,"[translate][Tr_Nil] begin\n");fflush(stdout);
 	return Tr_Ex(T_Const(0));
 }
 
 Tr_exp Tr_Int(int x)
 {
+	//////fprintf(stdout,"[translate][Tr_Int] begin\n");fflush(stdout);
 	return Tr_Ex(T_Const(x));
 }
 
 Tr_exp Tr_String(string s)
 {
+	////fprintf(stdout,"[translate][Tr_String] begin\n");fflush(stdout);
     Temp_label l = Temp_newlabel();
     F_frag frag = F_StringFrag(l,s);
     fragList = F_FragList(frag, fragList);
@@ -232,22 +252,28 @@ Tr_exp Tr_String(string s)
 
 Tr_exp Tr_Call(Temp_label label,Tr_expList args,Tr_level level,Tr_level cur)
 {
-	//fprintf(stderr,"[Tr_call] begin\n");
+	//////fprintf(stdout,"[translate][Tr_call] begin\n");fflush(stdout);
+	//////fprintf(stdout,"[translate][Tr_call] fun=%s\n",Temp_labelstring(label));fflush(stdout);
+	//////fprintf(stdout,"[translate][Tr_call] argsNum=%d\n",TrExpListLen(args));fflush(stdout);
+	//////fprintf(stdout,"[translate][Tr_call] level=%d\n",getKey(level));fflush(stdout);
+	if(getKey(level)==1)//调用的是系统函数，0表示的main函数
+		return Tr_Ex(F_externalCall(Temp_labelstring(label),T_ExpList2(args)));
 	T_exp e1 = staticLink(cur,level->parent);
-	//fprintf(stderr,"[Tr_call] staticLink return\n");
 	T_expList el = T_ExpList2(args);
-	//fprintf(stderr,"Tr_call\n");
-    return Tr_Ex(T_Call(T_Name(label),T_ExpList(e1,el)));
+	Tr_exp e=Tr_Ex(T_Call(T_Name(label),T_ExpList(e1,el)));
+	//////fprintf(stdout,"[translate][Tr_call] complete\n");fflush(stdout);
+    return e;
 }
 
 Tr_exp Tr_Op(A_oper oper,Tr_exp left,Tr_exp right,bool isString)
 {
+	//////fprintf(stdout,"[translate][Tr_Op] begin\n");fflush(stdout);
 	T_exp leftt,rightt;
 	struct Cx cx;
 	if (isString)
 	{
-        leftt=F_externalCall("StrCmp",T_ExpList(unEx(left),T_ExpList(unEx(right),NULL)));
-        rightt = T_Const(0);
+        leftt=F_externalCall("stringEqual",T_ExpList(unEx(left),T_ExpList(unEx(right),NULL)));
+        rightt = T_Const(1);
     } 
     else
     {
@@ -290,31 +316,40 @@ Tr_exp Tr_Op(A_oper oper,Tr_exp left,Tr_exp right,bool isString)
 
 Tr_exp Tr_Record(int num, Tr_expList fields)
 {
+	//////fprintf(stdout,"[translate][Tr_Record] begin\n");fflush(stdout);
 	Temp_temp t = Temp_newtemp();
-	T_exp texp=F_externalCall("Malloc",T_ExpList(T_Const(num*F_wordSize),NULL));
-    return Tr_Ex(T_Eseq(T_Move(T_Temp(t),texp),T_Eseq(Fields(t, num - 1, fields),T_Temp(t))));
+	T_exp texp=F_externalCall("allocRecord",T_ExpList(T_Const(num*F_wordSize),NULL));
+    Tr_exp ret=Tr_Ex(T_Eseq(T_Move(T_Temp(t),texp),T_Eseq(Fields(t, num - 1, fields),T_Temp(t))));
+    //////fprintf(stdout,"[translate][Tr_Record] complete\n");fflush(stdout);
+    return ret;
 }
 
 Tr_exp Tr_Seq(Tr_exp a, Tr_exp b)
 {
+	////fprintf(stdout,"[translate][Tr_Seq] begin\n");fflush(stdout);
+	//////fprintf(stdout,"[translate][Tr_Seq] a->kind=%d,b->kind=%d\n",a->kind,b->kind);fflush(stdout);
     return Tr_Ex(T_Eseq(unNx(a), unEx(b)));
 }
 
-Tr_exp Tr_Assign(Tr_exp dst, Tr_exp src)
+Tr_exp Tr_Assign(Tr_exp dst, Tr_exp src,string from)
 {
-    return Tr_Nx(T_Move(unEx(dst), unEx(src)));
+	//fprintf(stdout,"[translate][Tr_Assign] from %s\n",from);fflush(stdout);
+	Tr_exp e=Tr_Nx(T_Move(unEx(dst), unEx(src)));
+	//fprintf(stdout,"[translate][Tr_Assign] complete\n");fflush(stdout);
+    return e;
 }
 
 Tr_exp Tr_If(Tr_exp test, Tr_exp then, Tr_exp elsee)
 {
-	Temp_label t = Temp_newlabel();
-    Temp_label f = Temp_newlabel();
+	Temp_label t = Temp_IfTrueLabel();
+    Temp_label f = Temp_IfFalseLabel();
     Temp_temp r = Temp_newtemp();
     Temp_label done = Temp_newlabel();
+    ////fprintf(stdout,"[translate][Tr_If]test->kind=%d\n",test->kind);fflush(stdout);
     struct Cx cx = unCx(test);
     doPatch(cx.trues, t);
     doPatch(cx.falses, f);
-    //fprintf(stderr,"Tr_If\n");
+    ////////fprintf(stdout,"Tr_If\n");
     if(elsee)
     	return Tr_Ex(T_Eseq(cx.stm,
         	    T_Eseq(T_Label(t),
@@ -332,14 +367,14 @@ Tr_exp Tr_If(Tr_exp test, Tr_exp then, Tr_exp elsee)
 
 Tr_exp Tr_While(Tr_exp test, Tr_exp body, Temp_label done)
 {
-	Temp_label t = Temp_newlabel();
-    Temp_label b = Temp_newlabel();
+	Temp_label t = Temp_WhileTestLabel();
+    Temp_label l = Temp_WhileLoopLabel();
     struct Cx cx = unCx(test);
-    doPatch(cx.trues, b);
+    doPatch(cx.trues, l);
     doPatch(cx.falses, done);
     return Tr_Nx(T_Seq(T_Label(t),
                 T_Seq(cx.stm,
-                    T_Seq(T_Label(b),
+                    T_Seq(T_Label(l),
                         T_Seq(unNx(body),
                             T_Seq(T_Jump(T_Name(t), Temp_LabelList(t, NULL)),
                                 T_Label(done)))))));
@@ -370,35 +405,21 @@ Tr_exp Tr_Break(Temp_label done)
 
 Tr_exp Tr_Array(Tr_exp size, Tr_exp init)
 {
-	Temp_temp r = Temp_newtemp();
-    Temp_temp i = Temp_newtemp();
-    Temp_temp limit = Temp_newtemp();
-    Temp_temp v = Temp_newtemp();
-    Temp_label t = Temp_newlabel();
-    Temp_label b = Temp_newlabel();
-    Temp_label done = Temp_newlabel();
-    return Tr_Ex(T_Eseq(T_Move(T_Temp(limit), unEx(size)),
-                T_Eseq(T_Move(T_Temp(v), unEx(init)),
-                        T_Eseq(T_Move(T_Temp(r), F_externalCall("Malloc", T_ExpList(T_Binop(T_mul, T_Temp(limit), T_Const(F_wordSize)), NULL))),
-                            T_Eseq(T_Move(T_Temp(i), T_Const(0)),
-                                T_Eseq(T_Label(t),
-                                    T_Eseq(T_Cjump(T_lt, T_Temp(i), T_Temp(limit), b, done),
-                                        T_Eseq(T_Label(b),
-                                            T_Eseq(T_Move(T_Mem(T_Binop(T_plus, T_Temp(r), T_Binop(T_mul, T_Temp(i), T_Const(F_wordSize)))), T_Temp(v)),
-                                                T_Eseq(T_Move(T_Temp(i), T_Binop(T_plus, T_Temp(i), T_Const(1))),
-                                                    T_Eseq(T_Jump(T_Name(t), Temp_LabelList(t, NULL)),
-                                                        T_Eseq(T_Label(done),
-                                                            T_Temp(r)))))))))))));
+	return Tr_Ex(F_externalCall("initArray", T_ExpList(unEx(size), T_ExpList(unEx(init), NULL))));
 }
 
 Tr_exp Tr_simpleVar(Tr_access access, Tr_level level)
 {
+	////fprintf(stdout,"[translate][Tr_simpleVar] begin\n");fflush(stdout);
     T_exp texp = staticLink(level, access->level);
-    return Tr_Ex(F_Exp(access->access, texp));
+    Tr_exp e=Tr_Ex(F_Exp(access->access, texp));
+    ////fprintf(stdout,"[translate][Tr_simpleVar] complete\n");fflush(stdout);
+    return e;
 }
 
 Tr_exp Tr_fieldVar(Tr_exp addr, int index)
 {
+	//////fprintf(stdout,"[translate][Tr_fieldVar] begin\n");fflush(stdout);
     return Tr_Ex(T_Mem(T_Binop(T_plus,unEx(addr),T_Const(index*F_wordSize))));
 }
 
@@ -407,11 +428,16 @@ Tr_exp Tr_subscriptVar(Tr_exp addr, Tr_exp index)
 	return Tr_Ex(T_Mem(T_Binop(T_plus,unEx(addr),T_Binop(T_mul, unEx(index), T_Const(F_wordSize)))));
 }
 
-void Tr_procEntryExit(Tr_level level, Tr_exp body, Tr_accessList formals)
+T_stm Tr_procEntryExit1(Tr_level level, Tr_exp body)
 {
-	//fprintf(stderr,"[Tr_procEntryExit]\n");
-	F_frag frag = F_ProcFrag(NULL, NULL);
-    fragList = F_FragList(frag, fragList);
+	return T_Move(T_Temp(F_RV()),unEx(body));
+}
+
+void Tr_newProcFrag(Tr_exp body, Tr_level level)
+{
+	T_stm s=Tr_procEntryExit1(level,body);
+	F_frag f=F_ProcFrag(s,level->frame);
+	fragList=F_FragList(f,fragList);
 }
 
 F_fragList Tr_getResult()
@@ -429,27 +455,27 @@ static Tr_accessList Tr_AccessList2(Tr_level level, F_accessList formals)
 
 static T_exp staticLink(Tr_level a, Tr_level b)
 {
-	//fprintf(stderr,"[staticLink]\n");
+	////fprintf(stdout,"[translate][staticLink] a->key=%d,b->key=%d\n",getKey(a),getKey(b));fflush(stdout);
     T_exp texp = T_Temp(F_FP());
     Tr_level tmp;int i=0;
-    //if(a)fprintf(stderr,"erra\n");
-    if(!b)b=Tr_outermost();
     for(tmp=a;tmp&&tmp!=b;tmp=tmp->parent)
-    {//if(!tmp->frame)
-    //fprintf(stderr,"err\n");++i;
-    //fprintf(stderr,"%d\n",i);
-    F_accessList formals=F_formals(tmp->frame);
-    if(formals)texp = F_Exp(F_formals(tmp->frame)->head, texp);
-    else texp=T_Const(0);}
-    //fprintf(stderr,"complete\n");
+    {
+    	F_accessList formals=F_formals(tmp->frame);
+    	if(formals)texp = F_Exp(F_formals(tmp->frame)->head, texp);
+    	else texp=T_Const(0);
+    	//////fprintf(stdout,"[translate][staticLink] texp\n");printStmList(stdout,T_StmList(T_Exp(texp),NULL));fflush(stdout);
+    }
+    ////fprintf(stdout,"[translate][staticLink] complete\n");fflush(stdout);
     return texp;
 }
 
+//将函数参数反序组成T_expList
 static T_expList T_ExpList2(Tr_expList args)
 {
-	if(!args)
-		return NULL;
-	return T_ExpList(unEx(args->head),T_ExpList2(args->tail));
+	T_expList ret=NULL;
+	for(;args;args=args->tail)
+		ret=T_ExpList(unEx(args->head),ret);
+	return ret;
 }
 
 static T_stm Fields(Temp_temp r, int num, Tr_expList fields)

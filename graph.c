@@ -35,6 +35,11 @@ G_graph G_Graph(void)
  return g;
 }
 
+int G_getNodecount(G_graph g)
+{
+	return g->nodecount;
+}
+
 G_nodeList G_NodeList(G_node head, G_nodeList tail)
 {G_nodeList n = (G_nodeList) checked_malloc(sizeof *n);
  n->head=head;
@@ -149,7 +154,7 @@ G_nodeList G_adj(G_node n) {return cat(G_succ(n), G_pred(n));}
 
 void *G_nodeInfo(G_node n) {return n->info;}
 
-
+int G_getMykey(G_node n) {return n->mykey;}
 
 /* G_node table functions */
 

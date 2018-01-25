@@ -3,11 +3,27 @@
 #include "symbol.h"
 #include "temp.h"
 #include "tree.h"
+#include "printtree.h"
 
 T_expList T_ExpList(T_exp head, T_expList tail)
 {T_expList p = (T_expList) checked_malloc (sizeof *p);
  p->head=head; p->tail=tail;
  return p;
+}
+int TExpListLen(T_expList el)
+{
+	if(!el)return 0;
+	return 1+TExpListLen(el->tail);
+}
+
+//将b放在a后面
+T_expList TExp_splice(T_expList a, T_expList b)
+{
+  T_expList p;
+  if (a==NULL) return b;
+  for(p=a; p->tail!=NULL; p=p->tail) ;
+  p->tail=b;
+  return a;
 }
 
 T_stmList T_StmList(T_stm head, T_stmList tail)
@@ -88,7 +104,8 @@ T_exp T_Temp(Temp_temp temp)
 }
  
 T_exp T_Eseq(T_stm stm, T_exp exp)
-{T_exp p = (T_exp) checked_malloc(sizeof *p);
+{//printStmList(logFile, T_StmList(stm, NULL));
+ T_exp p = (T_exp) checked_malloc(sizeof *p);
  p->kind=T_ESEQ;
  p->u.ESEQ.stm=stm;
  p->u.ESEQ.exp=exp;

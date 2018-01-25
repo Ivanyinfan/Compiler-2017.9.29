@@ -94,7 +94,7 @@ char *getstr(const char *str)
 <INITIAL>var {adjust();return VAR;}
 <INITIAL>type {adjust();return TYPE;}
 <INITIAL>[a-zA-Z][a-zA-Z0-9_]* {adjust();yylval.sval=String(yytext);return ID;}
-<INITIAL>\"[a-zA-Z0-9\- \.\\]*\" {adjust();yylval.sval=getstr(yytext);return STRING;}
+<INITIAL>\"[a-zA-Z0-9!>\[\]\- \.\\]*\" {adjust();yylval.sval=getstr(yytext);return STRING;}
 <INITIAL>[0-9]+ {adjust();yylval.ival=atoi(yytext);return INT;}
 <INITIAL>, {adjust();return COMMA;}
 <INITIAL>: {adjust();return COLON;}

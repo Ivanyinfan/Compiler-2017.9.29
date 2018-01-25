@@ -15,10 +15,22 @@
 #include "frame.h"
 #include "errormsg.h"
 
+static int key=0;
+
 AS_targets AS_Targets(Temp_labelList labels) {
    AS_targets p = checked_malloc (sizeof *p);
    p->labels=labels;
    return p;
+}
+
+string AssemInst(AS_instr inst)
+{
+	switch(inst->kind)
+	{
+		case I_OPER:return inst->u.OPER.assem;
+		case I_LABEL:return inst->u.LABEL.assem;
+		case I_MOVE:return inst->u.MOVE.assem;
+	}
 }
 
 AS_instr AS_Oper(string a, Temp_tempList d, Temp_tempList s, AS_targets j) {
@@ -28,6 +40,7 @@ AS_instr AS_Oper(string a, Temp_tempList d, Temp_tempList s, AS_targets j) {
   p->u.OPER.dst=d; 
   p->u.OPER.src=s; 
   p->u.OPER.jumps=j;
+  p->key=++key;
   return p;
 }
 
@@ -36,6 +49,7 @@ AS_instr AS_Label(string a, Temp_label label) {
   p->kind = I_LABEL;
   p->u.LABEL.assem=a; 
   p->u.LABEL.label=label; 
+  p->key=++key;
   return p;
 }
 
@@ -45,6 +59,7 @@ AS_instr AS_Move(string a, Temp_tempList d, Temp_tempList s) {
   p->u.MOVE.assem=a; 
   p->u.MOVE.dst=d; 
   p->u.MOVE.src=s; 
+  p->key=++key;
   return p;
 }
 
@@ -52,6 +67,14 @@ AS_instrList AS_InstrList(AS_instr head, AS_instrList tail)
 {AS_instrList p = (AS_instrList) checked_malloc (sizeof *p);
  p->head=head; p->tail=tail;
  return p;
+}
+
+int InstrListLen(AS_instrList l)
+{
+	int len=0;
+	for(;l;l=l->tail)
+		len++;
+	return len;
 }
 
 /* put list b at the end of list a */
@@ -62,7 +85,8 @@ AS_instrList AS_splice(AS_instrList a, AS_instrList b) {
   p->tail=b;
   return a;
 }
-	
+
+//templist中第i个值
 static Temp_temp nthTemp(Temp_tempList list, int i) {
   assert(list);
   if (i==0) return list->head;
@@ -84,8 +108,6 @@ static void format(char *result, string assem,
 		   Temp_tempList dst, Temp_tempList src,
 		   AS_targets jumps, Temp_map m)
 {
-
-  //fprintf(stdout, "a format: assem=%s, dst=%p, src=%p\n", assem, dst, src);
   char *p;
   int i = 0; /* offset to result string */
   for(p = assem; p && *p != '\0'; p++){
@@ -162,4 +184,30 @@ AS_proc AS_Proc(string p, AS_instrList b, string e)
 {AS_proc proc = checked_malloc(sizeof(*proc));
  proc->prolog=p; proc->body=b; proc->epilog=e;
  return proc;
+}
+
+void printASInstr(FILE *out,AS_instr i)
+{
+	switch(i->kind)
+	{
+		case I_OPER:
+			fprintf(out,"I_OPER :%s\n",i->u.OPER.assem);
+			fprintf(out,"        src=");
+			printTempList(out,i->u.OPER.src);
+			fprintf(out,"        dst=");
+			printTempList(out,i->u.OPER.dst);
+			fprintf(out,"        targets=");
+			printTempLabelList(out,i->u.OPER.jumps->labels);
+			break;
+		case I_LABEL:
+			fprintf(out,"I_LABEL:%s\n",i->u.LABEL.assem);
+			break;
+		case I_MOVE:
+			fprintf(out,"I_MOVE :%s\n",i->u.MOVE.assem);
+			fprintf(out,"        src=");
+			printTempList(out,i->u.MOVE.src);
+			fprintf(out,"        dst=");
+			printTempList(out,i->u.MOVE.dst);
+			break;
+	}
 }

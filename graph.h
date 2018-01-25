@@ -13,6 +13,9 @@ struct G_nodeList_ { G_node head; G_nodeList tail;};
 
 /* Make a new graph */
 G_graph G_Graph(void); 
+
+int G_getNodecount(G_graph g);
+
 /* Make a new node in graph "g", with associated "info" */
 G_node G_Node(G_graph g, void *info);
 
@@ -53,6 +56,8 @@ G_nodeList G_adj(G_node n);
 
 /* Get the "info" associated with node "n" */
 void *G_nodeInfo(G_node n);
+
+int G_getMykey(G_node n);
 
 /* The type of "tables" mapping graph-nodes to information */
 typedef struct TAB_table_  *G_table;

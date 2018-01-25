@@ -3,6 +3,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "util.h"
 #include "symbol.h"
 #include "types.h"
@@ -24,6 +25,7 @@
 #include "regalloc.h"
 
 extern bool anyErrors;
+Temp_map F_tempMap;
 
 /*Lab6: complete the function doProc
  * 1. initialize the F_tempMap
@@ -44,13 +46,14 @@ static void doProc(FILE *out, F_frame frame, T_stm body)
 
  F_tempMap = Temp_empty();
 
- //printf("doProc for function %s:\n", S_name(F_name(frame)));
- /*printStmList(stdout, T_StmList(body, NULL));
- printf("-------====IR tree=====-----\n");*/
+ //fprintf(stdout,"[main][doProc]for function %s:\n", S_name(F_name(frame)));fflush(stdout);
+ //printf("-------==== before linerize =====-----\n");
+ //printStmList(stdout, T_StmList(body, NULL));
+ //printf("-------====IR tree=====-----\n");
 
  stmList = C_linearize(body);
- /*printStmList(stdout, stmList);
- printf("-------====Linearlized=====-----\n");*/
+ //printStmList(stdout, stmList);
+ //fprintf(stdout,"--------=====Linearlized======------\n");fflush(stdout);
 
  blo = C_basicBlocks(stmList);
  C_stmListList stmLists = blo.stmLists;
@@ -60,20 +63,30 @@ static void doProc(FILE *out, F_frame frame, T_stm body)
  }*/
 
  stmList = C_traceSchedule(blo);
- /*printStmList(stdout, stmList);
- printf("-------====trace=====-----\n");*/
+ //printStmList(stdout, stmList);
+ //fprintf(logFile,"--------=====   trace   ======------\n");fflush(logFile);
  iList  = F_codegen(frame, stmList); /* 9 */
 
- AS_printInstrList(stdout, iList, Temp_layerMap(F_tempMap, Temp_name()));
- printf("----======before RA=======-----\n");
+ //AS_printInstrList(stdout, iList, Temp_layerMap(F_tempMap, Temp_name()));
+ //printf("-----=======before RA========------\n");
 
  //G_graph fg = FG_AssemFlowGraph(iList);  /* 10.1 */
  struct RA_result ra = RA_regAlloc(frame, iList);  /* 11 */
-
- fprintf(out, "BEGIN function\n");
+ //AS_printInstrList (stdout, ra.il,
+                       //Temp_layerMap(F_tempMap,ra.coloring));
+ proc =	F_procEntryExit3(frame, ra.il);
+ //AS_printInstrList (stdout, proc->body,
+                       //Temp_layerMap(F_tempMap,ra.coloring));
+ string procName = S_name(F_name(frame));
+ fprintf(out, ".text\n");
+ fprintf(out, ".global %s\n", procName);
+ fprintf(out, ".type %s, @function\n", procName);
+ fprintf(out, "%s:\n", procName);
+ //fprintf(stdout,"[main][doProc]==== write file ====\n");fflush(stdout);
+ //fprintf(out, "BEGIN function\n");
  AS_printInstrList (out, proc->body,
                        Temp_layerMap(F_tempMap, ra.coloring));
- fprintf(out, "END function\n");
+ //fprintf(out, "END function\n");
 
  //Part of TA's implementation. Just for reference.
  /*
@@ -95,23 +108,31 @@ static void doProc(FILE *out, F_frame frame, T_stm body)
  fprintf(out, "%s", proc->epilog);
  //fprintf(out, "END %s\n\n", Temp_labelstring(F_name(frame)));
  */
+ //fprintf(stdout,"[main][doProc]for function %s complete\n", S_name(F_name(frame)));fflush(stdout);
 }
 
 void doStr(FILE *out, Temp_label label, string str) {
+	//fprintf(stdout,"[main][doStr]begin\n");fflush(stdout);
+	
 	fprintf(out, ".section .rodata\n");
-	fprintf(out, ".%s:\n", S_name(label));
+	fprintf(out, "%s:\n", S_name(label));
 
-	int length = *(int *)str;
-	length = length + 4;
+	/*int length = *(int *)str;
+	length = length + 4;*/
 	//it may contains zeros in the middle of string. To keep this work, we need to print all the charactors instead of using fprintf(str)
+	int length=strlen(str);
+	string rstr=recoverString(str);
+	int newlength=strlen(rstr);
+	//fprintf(stdout,"[main][doStr]length=%d\n",length);fflush(stdout);
+	fprintf(out, ".int %d\n",length);
 	fprintf(out, ".string \"");
-	int i = 0;
-	for (; i < length; i++) {
-		fprintf(out, "%c", str[i]);
+	for (int i=0; i < newlength; i++) {
+		fprintf(out, "%c", rstr[i]);
 	}
 	fprintf(out, "\"\n");
 
 	//fprintf(out, ".string \"%s\"\n", str);
+	//fprintf(stdout,"[main][doStr]complete\n");fflush(stdout);
 }
 
 int main(int argc, string *argv)
@@ -122,6 +143,8 @@ int main(int argc, string *argv)
  char outfile[100];
  FILE *out = stdout;
 
+ //logFile=fopen("tiger-compiler.log","w+");
+ 
  if (argc==2) {
    absyn_root = parse(argv[1]);
    if (!absyn_root)
@@ -134,7 +157,7 @@ int main(int argc, string *argv)
 
    //Lab 6: escape analysis
    //If you have implemented escape analysis, uncomment this
-   //Esc_findEscape(absyn_root); /* set varDec's escape field */
+   Esc_findEscape(absyn_root); /* set varDec's escape field */
 
    frags = SEM_transProg(absyn_root);
    if (anyErrors) return 1; /* don't continue */
@@ -142,6 +165,7 @@ int main(int argc, string *argv)
    /* convert the filename */
    sprintf(outfile, "%s.s", argv[1]);
    out = fopen(outfile, "w");
+   
    /* Chapter 8, 9, 10, 11 & 12 */
    for (;frags;frags=frags->tail)
      if (frags->head->kind == F_procFrag) {
